@@ -5,10 +5,39 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import seaborn as sns
 import requests
+import time
 from streamlit_lottie import st_lottie
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import (
+    mean_absolute_error,
+    r2_score,
+    accuracy_score
+)
+
+st.markdown("""
+<style>
+
+[data-testid="stMetric"]{
+    background-color:#111827;
+    border:1px solid #374151;
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0px 4px 12px rgba(0,0,0,0.2);
+}
+
+[data-testid="stMetricValue"]{
+    font-size:42px;
+    font-weight:bold;
+}
+
+[data-testid="stMetricLabel"]{
+    font-size:18px;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # ======================================
 # LOTTIE SAFE LOADER
@@ -63,27 +92,93 @@ st.markdown(
 # CONFIG
 # ======================================
 st.set_page_config(
-    page_title="Sleep Quality AI",
-    page_icon="😴",
+    page_title="TidurFit",
+    page_icon="logo_python.png",
     layout="wide"
 )
 
-st.title("😴 Sleep Quality Prediction AI")
-st.caption(
-    "Integrated Health AI System"
-)
+# ======================================
+# SPLASH SCREEN
+# ======================================
+
+if "splash_done" not in st.session_state:
+
+    splash = st.empty()
+
+    with splash.container():
+
+        st.markdown("<br><br>", unsafe_allow_html=True)
+
+        col1, col2, col3 = st.columns([2,1,2])
+
+        with col2:
+            st.image(
+                "logo_app.png",
+                width=180
+            )
+
+        st.markdown(
+            """
+            <h1 style='text-align:center;'>
+            TidurFit
+            </h1>
+
+            <h4 style='text-align:center;'>
+            Integrated Health AI System
+            </h4>
+            """,
+            unsafe_allow_html=True
+        )
+
+        progress = st.progress(0)
+
+        for i in range(100):
+            time.sleep(0.02)
+            progress.progress(i + 1)
+
+    time.sleep(2)
+
+    st.session_state["splash_done"] = True
+
+    st.rerun()
+
+col1, col2, col3 = st.columns([1,2,1])
+
+with col2:
+    
+    st.markdown(
+        """
+        <h1 style='text-align:center; margin-bottom:0px;'>
+        TidurFit
+        </h1>
+
+        <h4 style='text-align:center; margin-top:0px;'>
+        Integrated Health AI System
+        </h4>
+        """,
+        unsafe_allow_html=True
+    )
+    
 if "bmi_category" not in st.session_state:
     st.session_state["bmi_category"] = "Normal"
-tab1, tab2 = st.tabs(
+
+if "gender" not in st.session_state:
+    st.session_state["gender"] = "Female"
+
+if "age" not in st.session_state:
+    st.session_state["age"] = 21
+    
+tab1, tab2, tab3 = st.tabs(
     [
-        "🏥 Health Risk Checker",
-        "😴 Sleep Analysis"
+        "Analisis Kondisi Berat Badan",
+        "Analisis Kualitas Tidur",
+        "Tentang Sistem"
     ]
 )
 # ======================================
 # LOAD DATA
 # ======================================
-df = pd.read_csv("Sleep_health_and_lifestyle_dataset.csv").dropna()
+df = pd.read_csv("Sleep_Data_Sampled.csv").dropna()
 
 # target asli dataset
 target = "Quality of Sleep"
@@ -100,6 +195,61 @@ obesity_df = pd.read_csv(
     "ObesityDataSet_raw_and_data_sinthetic.csv"
 )
 
+# ======================================
+# MODEL OBESITY
+# ======================================
+
+obesity_features = [
+    "Gender",
+    "Age",
+    "Height",
+    "Weight"
+]
+
+X_obesity = obesity_df[obesity_features]
+
+y_obesity = obesity_df["NObeyesdad"]
+
+# encoding gender
+X_obesity = pd.get_dummies(
+    X_obesity,
+    columns=["Gender"]
+)
+
+# simpan nama kolom
+obesity_train_cols = X_obesity.columns
+
+# split data
+Xo_train, Xo_test, yo_train, yo_test = train_test_split(
+    X_obesity,
+    y_obesity,
+    test_size=0.2,
+    random_state=42
+)
+
+# model classifier
+obesity_model = DecisionTreeClassifier(
+    max_depth=5,
+    random_state=42
+)
+
+obesity_model.fit(
+    Xo_train,
+    yo_train
+)
+
+# ======================================
+# EVALUASI MODEL OBESITY
+# ======================================
+
+obesity_pred = obesity_model.predict(
+    Xo_test
+)
+
+obesity_acc = accuracy_score(
+    yo_test,
+    obesity_pred
+)
 # ======================================
 # ENCODING
 # ======================================
@@ -133,95 +283,75 @@ y_pred_test = model.predict(X_test)
 
 mae = mean_absolute_error(y_test, y_pred_test)
 r2 = r2_score(y_test, y_pred_test)
+train_pred = model.predict(X_train)
+train_r2 = r2_score(y_train, train_pred)
 
+# ======================================
+# FEATURE IMPORTANCE
+# ======================================
+
+importance_df = pd.DataFrame({
+    "Faktor-Faktor": X.columns,
+    "Persentase Nilai": model.feature_importances_
+})
+
+importance_df = importance_df.sort_values(
+    by="Persentase Nilai",
+    ascending=False
+)
 
 # ======================================
 # SIDEBAR (BALIKIN SEPERTI SEMULA)
 # ======================================
 with st.sidebar:
-    st.header("⚙️ Model Info")
-    st.success(f"R² Score: {r2*100:.2f}%")
-    st.write(f"MAE: {mae:.2f}")
+    st.header("Informasi Mengenai Model Yang Digunakan")
 
-    st.write("Algorithm: Decision Tree Regressor")
-    st.write("Target: Quality of Sleep (1–10)")
-    st.write("Dataset: Sleep Health & Lifestyle")
+    st.success(f"Dataset Size: {len(df)} Rows")
+    st.success(f"Train R²: {train_r2*100:.2f}%")
+    st.success(f"Test R²: {r2*100:.2f}%")
 
+    st.success(f"MAE: {mae:.2f}")
+    
+    st.success(
+    f"Obesity Accuracy: {obesity_acc*100:.2f}%"
+)
 with tab2:
 
-    # ======================================
-    # PENJELASAN MODEL
-    # ======================================
-    st.markdown("## 📌 Penjelasan Model")
 
     st.info(
     """
-    Model yang digunakan dalam sistem ini adalah Decision Tree Regressor...
-    """
-    )
-
-    # ======================================
-    # TABEL FAKTOR
-    # ======================================
-    st.markdown("## 📊 Faktor yang Mempengaruhi Kualitas Tidur")
-
-    factor_table = pd.DataFrame({
-        "Faktor": [
-            "Stress Level",
-            "Sleep Duration",
-            "Physical Activity Level",
-            "Heart Rate",
-            "Daily Steps",
-            "BMI Category"
-        ],
-        "Penilaian Model": [
-            "Sangat Tinggi",
-            "Sangat Tinggi",
-            "Tinggi",
-            "Tinggi",
-            "Sedang",
-            "Sedang"
-        ],
-        "Mengapa Mempengaruhi": [
-            "Stres tinggi menurunkan kualitas tidur.",
-            "Durasi tidur mempengaruhi pemulihan tubuh.",
-            "Aktivitas fisik membantu kualitas tidur.",
-            "Detak jantung tinggi membuat tubuh sulit relaks.",
-            "Jumlah langkah menunjukkan aktivitas harian.",
-            "BMI mempengaruhi kesehatan dan tidur."
-        ],
-        "Estimasi Pengaruh (%)": [
-            28.4,
-            24.9,
-            16.7,
-            12.3,
-            9.8,
-            7.9
-        ]
-    })
-
-    st.table(factor_table)
-
+    Hasil Analisis Kondisi Berat Badan akan digunakan secara otomatis sebagai salah satu faktor dalam prediksi kualitas tidur untuk menghasilkan analisis yang lebih akurat dan komprehensif.
+    """    )  
     # ======================================
     # INPUT USER
     # ======================================
-    st.markdown("## 🧠 Input Data User")
+    st.markdown("Input Dulu Ya")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        gender = st.selectbox(
-            "Gender",
-            sorted(df["Gender"].unique())
+        gender = st.session_state.get(
+     "gender",
+     "Female"
+     )
+
+        age = st.session_state.get(
+         "age",
+          21
+         )
+
+        st.text_input(
+        "Gender",
+        value=gender,
+        disabled=True
         )
 
-        age = st.number_input(
+        st.text_input(
             "Age",
-            18,
-            100,
-            25
-        )
-
+            value=str(age),
+            disabled=True
+            )
+    
         occupation = st.selectbox(
             "Occupation",
             sorted(df["Occupation"].unique())
@@ -278,7 +408,7 @@ with tab2:
     # ======================================
     # PREDIKSI
     # ======================================
-    if st.button("🚀 Predict Sleep Quality"):
+    if st.button("Ayo Liat Score Kalian Gais :v"):
 
         input_df = pd.DataFrame([{
             "Gender": gender,
@@ -309,7 +439,7 @@ with tab2:
         pred = model.predict(input_df)[0]
 
         st.markdown("---")
-        st.markdown("## 📊 Prediction Result")
+        st.markdown("Ini Score Kalian Yaww :)")
 
         colA, colB = st.columns([1,2])
 
@@ -324,7 +454,7 @@ with tab2:
                     )
 
                 st.success(
-                    "🟢 GOOD SLEEP"
+                    "Bagus Di Pertahanin Ya Gais :>"
                 )
 
             elif pred >= 6:
@@ -336,7 +466,7 @@ with tab2:
                     )
 
                 st.warning(
-                    "🟡 MODERATE SLEEP"
+                    "Masih Bagus Si, Cuman Diperbaiki Lagi Yaw :v"
                 )
 
             else:
@@ -348,7 +478,7 @@ with tab2:
                     )
 
                 st.error(
-                    "🔴 POOR SLEEP"
+                    "Tidurnya Diatur Lagi Yaw :("
                 )
 
             st.metric(
@@ -359,43 +489,153 @@ with tab2:
         with colB:
 
             st.info(
-                "Prediksi berbasis pola dataset."
+                "Prediksi ini dihitung berdasarkan dataset yang kami gunakan."
+            )
+            
+            if pred >= 8:
+                st.success(
+                 "Kualitas tidur Anda sangat baik."
             )
 
-        st.markdown(
-            "## 💡 Recommendation"
-        )
+            elif pred >= 7:
+                st.info(
+                "Kualitas tidur Anda tergolong baik."
+            )
 
-        if pred < 6:
+            elif pred >= 6:
+                st.warning(
+                "Kualitas tidur Anda cukup baik namun masih dapat ditingkatkan."
+            )
 
-            tips = [
-                "Kurangi stres harian",
-                "Perbaiki durasi tidur (7–9 jam)",
-                "Tingkatkan aktivitas fisik"
-            ]
+            else:
+                st.error(
+                "Kualitas tidur Anda tergolong rendah dan memerlukan perhatian lebih."
+            )
 
-        elif pred < 7.5:
+        st.subheader("Ini Rekomendasi Dari Akuu yaaa")
 
-            tips = [
-                "Pertahankan pola tidur",
-                "Kurangi penggunaan gadget",
-                "Jaga konsistensi jam tidur"
-            ]
+        tips = []
 
-        else:
+            # Analisis Durasi Tidur
+        if sleep_duration < 7:
+            tips.append(
+        "Durasi tidur Anda masih kurang. Disarankan tidur 7–9 jam per malam agar tubuh mendapatkan waktu pemulihan yang optimal."
+    )
 
-            tips = [
-                "Pertahankan gaya hidup sehat",
-                "Tetap aktif secara fisik",
-                "Jaga kualitas tidur"
-            ]
+# Analisis Stress
+        if stress >= 7:
+            tips.append(
+        "Tingkat stres Anda cukup tinggi. Cobalah melakukan relaksasi, olahraga ringan, atau mengurangi aktivitas yang memicu stres sebelum tidur."
+    )
 
+# Analisis Aktivitas Fisik
+        if activity < 40:
+            tips.append(
+        "Aktivitas fisik harian masih rendah. Menambah aktivitas fisik dapat membantu meningkatkan kualitas tidur dan kesehatan tubuh."
+    )
+
+# Analisis Daily Steps
+        if steps < 5000:
+            tips.append(
+        "Jumlah langkah harian masih rendah. Usahakan berjalan lebih aktif dan mencapai minimal 6.000–8.000 langkah per hari."
+    )
+
+# Analisis Heart Rate
+        if heart_rate > 90:
+            tips.append(
+        "Detak jantung relatif tinggi. Pastikan tubuh mendapatkan istirahat yang cukup dan hindari konsumsi kafein berlebihan sebelum tidur."
+    )
+
+# Analisis BMI
+        if bmi_category == "Obese":
+            tips.append(
+        "Kondisi berat badan berlebih dapat meningkatkan risiko gangguan tidur. Menjaga pola makan dan aktivitas fisik dapat membantu meningkatkan kualitas tidur."
+    )
+
+        elif bmi_category == "Underweight":
+            tips.append(
+        "Pastikan kebutuhan nutrisi harian terpenuhi agar tubuh memiliki energi yang cukup untuk mendukung pola tidur yang sehat."
+    )
+
+# Jika semua bagus
+        if len(tips) == 0:
+
+            if pred >= 8:
+
+                tips.append(
+                "Kualitas tidur Anda sangat baik. Pertahankan pola hidup sehat yang saat ini sudah berjalan dengan baik."
+                )
+
+            elif pred >= 7:
+
+                tips.append(
+                "Kualitas tidur Anda tergolong baik. Tetap pertahankan kebiasaan positif agar kualitas tidur tetap stabil."
+                )
+
+            else:
+
+                tips.append(
+                "Meskipun tidak ditemukan faktor risiko yang menonjol, kualitas tidur Anda masih dapat ditingkatkan dengan menjaga konsistensi jam tidur dan pola hidup sehat."
+                )
+
+    # Tampilkan hasil
         for t in tips:
-            st.write("✅", t)        
+            st.write("✅", t)
+            
+    st.markdown("""
+    <h3 style='margin-top:20px;'>
+    Hasil Evaluasi Model
+    </h3>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric(
+    "Dataset Size",
+    "15,000"
+    )
+
+    col2.metric(
+    "Train R²",
+    f"{train_r2*100:.2f}%"
+    )
+
+    col3.metric(
+    "Test R²",
+    f"{r2*100:.2f}%"
+    )
+
+    # ======================================
+    # TABEL FAKTOR
+    # ======================================
+    st.markdown("### Faktor-Faktor Yang Mempengaruhi Kualitas Tidur")
+
+    st.dataframe(importance_df)
+      
 with tab1:
 
-    st.header("🏥 Health Risk Checker")
+    st.header("Alat untuk mengukur BMI")
+    
+    st.info(
+    """
+    Modul ini menggunakan algoritma Decision Tree Classifier yang dilatih menggunakan Obesity Dataset untuk memprediksi kategori kondisi berat badan pengguna berdasarkan data Gender, Age, Height, dan Weight.
 
+    Hasil prediksi akan dikonversi menjadi BMI Category dan digunakan secara otomatis sebagai salah satu faktor dalam analisis kualitas tidur pada modul berikutnya.
+    """
+    )
+
+    gender_bmi = st.selectbox(
+    "Gender",
+    ["Male", "Female"]
+    )
+
+    age_bmi = st.number_input(
+    "Age",
+    min_value=10,
+    max_value=100,
+    value=21
+    )
+    
     height_cm = st.number_input(
     "Height (cm)",
     100,
@@ -410,29 +650,191 @@ with tab1:
         70.0
     )
 
-    if st.button("Analyze Health"):
+    if st.button("Analisis dulu yaww"):
 
-        height_m = height_cm / 100
+   # ======================================
+# PREDIKSI MODEL OBESITY
+# ======================================
 
-        bmi_value = weight / (height_m ** 2)
+        input_obesity = pd.DataFrame([{
+            "Gender": gender_bmi,
+            "Age": age_bmi,
+            "Height": height_cm / 100,
+            "Weight": weight
+            }])
 
-        if bmi_value < 18.5:
-            bmi_category = "Normal Weight"
+        input_obesity = pd.get_dummies(
+            input_obesity,
+            columns=["Gender"]
+            )
 
-        elif bmi_value < 25:
-            bmi_category = "Normal"
+        input_obesity = input_obesity.reindex(
+            columns=obesity_train_cols,
+            fill_value=0
+            )
 
-        elif bmi_value < 30:
-            bmi_category = "Overweight"
+        obesity_result = obesity_model.predict(
+            input_obesity
+            )[0]
+        
+        mapping = {
+        "Insufficient_Weight": "Underweight",
+        "Normal_Weight": "Normal",
+        "Overweight_Level_I": "Overweight",
+        "Overweight_Level_II": "Overweight",
+        "Obesity_Type_I": "Obese",
+        "Obesity_Type_II": "Obese",
+        "Obesity_Type_III": "Obese"
+        }
 
-        else:
-            bmi_category = "Obese"
+        bmi_category = mapping[obesity_result]
+        
+    # tampilkan
+        st.markdown("### Hasil Analisis Berat Badan")
 
-        st.success(
-            f"BMI Category : {bmi_category}"
+        st.metric(
+        "Predicted Category",
+        obesity_result.replace("_", " ")
         )
 
-        st.session_state["bmi_category"] = bmi_category
+        st.metric(
+        "BMI Category",
+        bmi_category
+        )
+
+        st.metric(
+        "Model Accuracy",
+        f"{obesity_acc*100:.2f}%"
+        )
+
         st.success(
-    "BMI berhasil dikirim ke Sleep Analysis"
+        f"Model memprediksi kondisi berat badan Anda sebagai {obesity_result.replace('_', ' ')}."
+        )
+        st.info(
+        "Hasil kategori BMI ini akan digunakan secara otomatis sebagai salah satu faktor dalam analisis kualitas tidur pada tab berikutnya."
 )
+        st.session_state["gender"] = gender_bmi
+        st.session_state["age"] = age_bmi
+        st.session_state["bmi_category"] = bmi_category
+        st.session_state["bmi_ready"] = True
+        
+        
+with tab3:
+
+    st.header("Tentang Sistem")
+
+    st.info(
+    """
+    Integrated Health AI System merupakan aplikasi berbasis Machine Learning yang dirancang untuk membantu pengguna memahami kondisi kesehatan berdasarkan kondisi fisik dan pola hidup sehari-hari.
+
+    Sistem ini terdiri dari dua modul utama, yaitu Analisis Kondisi Berat Badan dan Analisis Kualitas Tidur. Kedua modul tersebut menggunakan dataset dan model Machine Learning yang berbeda, namun saling terhubung dalam satu alur kerja yang terintegrasi.
+
+    Pada modul pertama, sistem menggunakan algoritma Decision Tree Classifier untuk menganalisis kondisi berat badan pengguna berdasarkan data Gender, Age, Height, dan Weight. Hasil analisis tersebut menghasilkan kategori kondisi berat badan yang kemudian dikonversi menjadi BMI Category sebagai representasi kondisi fisik pengguna.
+
+    Selanjutnya, BMI Category digunakan secara otomatis sebagai salah satu faktor pada modul Analisis Kualitas Tidur. Modul kedua menggunakan algoritma Decision Tree Regressor untuk memprediksi Quality of Sleep berdasarkan berbagai faktor, seperti Sleep Duration, Stress Level, Physical Activity Level, Heart Rate, Daily Steps, Occupation, serta BMI Category.
+
+    Dengan memanfaatkan berbagai faktor yang berkaitan dengan kondisi fisik dan pola hidup pengguna, sistem dapat memberikan analisis kualitas tidur yang lebih komprehensif serta membantu pengguna memahami faktor-faktor yang mempengaruhi kualitas tidur mereka.    """
+    )
+    
+    st.subheader("Latar Belakang Sistem")
+
+    st.write(
+    """
+    Kualitas tidur merupakan salah satu faktor penting yang mempengaruhi kesehatan, produktivitas, dan kualitas hidup seseorang. Namun, kualitas tidur dipengaruhi oleh berbagai faktor, seperti durasi tidur, tingkat aktivitas fisik, tingkat stres, kondisi fisik, serta kebiasaan hidup sehari-hari.
+
+    Perkembangan teknologi Machine Learning memungkinkan proses analisis berbagai faktor tersebut dilakukan secara lebih cepat dan efektif. Dengan memanfaatkan data yang relevan, sistem dapat membantu pengguna memahami kondisi kesehatan serta memperoleh gambaran mengenai kualitas tidur yang dimiliki.
+
+    Oleh karena itu, Integrated Health AI System dikembangkan untuk mengintegrasikan analisis kondisi berat badan dan analisis kualitas tidur dalam satu platform. Sistem ini memanfaatkan model Machine Learning untuk memberikan informasi yang lebih komprehensif berdasarkan kondisi fisik dan pola hidup pengguna.
+    """
+    )
+    
+    st.subheader("Tujuan Sistem")
+
+    st.markdown("""
+    - Membantu pengguna mengetahui kondisi berat badan berdasarkan data fisik yang dimasukkan.
+    - Membantu pengguna memprediksi kualitas tidur berdasarkan berbagai faktor seperti durasi tidur, tingkat stres, aktivitas fisik, detak jantung, jumlah langkah harian, serta kondisi fisik pengguna.
+    - Mengintegrasikan analisis kondisi berat badan dan kualitas tidur dalam satu sistem yang saling terhubung.
+    - Memberikan informasi yang mudah dipahami sebagai bahan evaluasi kesehatan pengguna.
+    """)
+
+    st.subheader("Dataset yang Digunakan")
+
+    st.write("• Obesity Dataset")
+    st.write(
+    "Digunakan untuk melatih model klasifikasi kondisi berat badan menggunakan algoritma Decision Tree Classifier."
+)
+    st.write("• Sleep Data Sampled Dataset")
+    st.write(
+    """
+    Digunakan untuk melatih model prediksi kualitas tidur menggunakan algoritma Decision Tree Regressor. Dataset ini berisi berbagai faktor yang mempengaruhi kualitas tidur, seperti Occupation, Sleep Duration, Physical Activity Level, Stress Level, Heart Rate, Daily Steps, serta BMI Category.
+    """
+)
+
+    st.subheader("Algoritma yang Digunakan")
+
+    st.write("• Decision Tree Classifier")
+    st.write(
+    "Digunakan untuk memprediksi kategori kondisi berat badan pengguna."
+)
+    st.write("• Decision Tree Regressor")
+    st.write(
+    "Digunakan untuk memprediksi nilai Quality of Sleep dengan skala 1 sampai 10."
+)
+
+    st.subheader("Alur Sistem")
+
+    st.code(
+    """
+Input Data Fisik
+↓
+Analisis Berat Badan
+↓
+BMI Category
+↓
+Analisis Kualitas Tidur
+↓
+Prediksi Quality of Sleep
+    """
+    )
+
+    st.markdown("---")
+
+    st.subheader("Profil Developer")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+
+        st.image(
+        "logo_python.png",
+        width=180
+    )
+
+        st.markdown("### Nama Developer 1")
+
+        st.write("NIM : XXXXX")
+        st.write("Kelas : I231D")
+    
+    with col2:
+
+        st.image(
+        "logo_python.png",
+        width=180
+    )
+
+        st.markdown("### Nama Developer 2")
+
+        st.write("NIM : XXXXX")
+        st.write("Kelas : I231D")
+    
+    with col3:
+
+        st.image(
+        "logo_python.png",
+        width=180
+    )
+
+        st.markdown("### Nama Developer 3")
+
+        st.write("NIM : XXXXX")
+        st.write("Kelas : I231D")
